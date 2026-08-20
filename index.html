@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZenTimings Frequency Converter</title>
+<style>
+  :root {
+    color-scheme: light dark;
+  }
+  body {
+    font-family: Segoe UI, Tahoma, Arial, sans-serif;
+    background: #f7f9fb;
+    color: #1f2937;
+    margin: 0;
+    padding: 24px;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 16px;
+  }
+  .panel {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .row:last-child { margin-bottom: 0; }
+  label {
+    font-size: 13px;
+    color: #4b5563;
+    min-width: 150px;
+  }
+  input[type="number"], input[type="text"] {
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-size: 13px;
+    width: 110px;
+  }
+  input[type="file"] {
+    font-size: 13px;
+  }
+  button {
+    border: 1px solid #d1d5db;
+    background: #f3f4f6;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  button:hover { background: #e5e7eb; }
+  button.primary {
+    background: #2563eb;
+    color: white;
+    border-color: #2563eb;
+  }
+  button.primary:hover { background: #1d4ed8; }
+  #status {
+    font-size: 12px;
+    color: #6b7280;
+    min-height: 16px;
+    margin-top: 4px;
+  }
+  #warn {
+    font-size: 12px;
+    color: #dc2626;
+    min-height: 16px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    background: #ffffff;
+    font-size: 13px;
+  }
+  th, td {
+    border: 1px solid #e5e7eb;
+    padding: 6px 8px;
+    text-align: center;
+  }
+  th {
+    background: #e8f0fe;
+    color: #1d4ed8;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+  }
+  td:first-child, th:first-child {
+    text-align: left;
+    font-weight: 500;
+  }
+  td.editable {
+    cursor: text;
+  }
+  td.editable:hover {
+    background: #f0f7ff;
+  }
+  td.editable input {
+    width: 90%;
+    padding: 2px 4px;
+    font-size: 13px;
+    border: 1px solid #2563eb;
+    border-radius: 3px;
+    box-sizing: border-box;
+  }
+  .table-wrap {
+    max-height: 70vh;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+  }
+  .hint {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #111827; color: #e5e7eb; }
+    .panel { background: #1f2937; border-color: #374151; }
+    table { background: #1f2937; }
+    th { background: #1e3a5f; color: #93c5fd; }
+    th, td { border-color: #374151; }
+    input, button { background: #111827; color: #e5e7eb; border-color: #374151; }
+    td.editable:hover { background: #1e293b; }
+  }
+</style>
+</head>
+<body>
+
+<h1>ZenTimings Frequency Converter</h1>
+
+<div class="panel">
+  <div class="row">
+    <label>Импорт отчёта ZenTimings (.html)</label>
+    <input type="file" id="fileHtml" accept=".html,.htm">
+  </div>
+  <div class="row">
+    <label>Импорт CSV (свой экспорт)</label>
+    <input type="file" id="fileCsv" accept=".csv">
+  </div>
+  <div class="row">
+    <label>Или начать вручную</label>
+    <button id="btnManual">Пустая таблица</button>
+  </div>
+  <div class="row">
+    <label>Исходная частота (MT/s)</label>
+    <input type="number" id="baseFreq" step="1">
+    <label style="min-width:auto">Целевая частота (MT/s)</label>
+    <input type="number" id="newFreq" step="1" value="6400">
+    <button class="primary" id="btnCalc">Пересчитать</button>
+    <button id="btnExport">Экспорт в CSV</button>
+  </div>
+  <div id="warn"></div>
+  <div id="status"></div>
+</div>
+
+<p class="hint">Двойной клик по ячейке «Значение» или «нс» — редактировать. При вводе нс подбирается ближайший целый такт.</p>
+
+<div class="table-wrap">
+<table id="out">
+  <thead>
+    <tr>
+      <th>Тайминг</th>
+      <th id="hValOld">Значение (старая)</th>
+      <th id="hNsOld">нс (старая)</th>
+      <th id="hValNew">Значение (новая)</th>
+      <th id="hNsNew">нс (новая)</th>
+    </tr>
+  </thead>
+  <tbody id="tbody"></tbody>
+</table>
+</div>
+
+<script>
+const TIMING_NAMES = [
+  "RFCsb","CL","RCDWR","RCDRD","RP","RAS","RC","RRDS","RRDL","FAW",
+  "WTRS","WTRL","WR","RDRDSCL","WRWRSCL","CWL","RTP","RDWR","WRRD",
+  "RDRDSC","RDRDSD","RDRDDD","WRWRSC","WRWRSD","WRWRDD","TRCPAGE","CKE",
+  "STAG","STAGsb","MOD","MODPDA","MRD","MRDPDA","RFC","RFC2","REFI",
+  "XP","PHYWRD","PHYWRL","PHYRDL","WRPRE","RDPRE","RDPOST","WRPOST","FGR"
+];
+
+let timings = {};     // {name: cycles} на исходной частоте
+let newTimings = {};  // {name: cycles} на новой частоте
+
+const baseFreqInput = document.getElementById('baseFreq');
+const newFreqInput = document.getElementById('newFreq');
+const tbody = document.getElementById('tbody');
+const statusEl = document.getElementById('status');
+const warnEl = document.getElementById('warn');
+
+function setStatus(msg) { statusEl.textContent = msg; }
+function setWarn(msg) { warnEl.textContent = msg; }
+
+function getBaseFreq() {
+  const v = parseFloat(baseFreqInput.value);
+  return isNaN(v) ? null : v;
+}
+function getNewFreq() {
+  const v = parseFloat(newFreqInput.value);
+  return isNaN(v) ? null : v;
+}
+
+function nsFromCycles(cyc, freq) {
+  if (cyc === null || cyc === undefined || !freq) return null;
+  const clk = freq / 2.0;
+  return cyc / clk * 1000.0;
+}
+
+function nearestCycleForNs(nsTarget, freq) {
+  const clk = freq / 2.0;
+  const exact = nsTarget * clk / 1000.0;
+  const lower = Math.floor(exact);
+  const upper = Math.ceil(exact);
+  const candidates = [lower, upper].filter(c => c >= 0);
+  if (candidates.length === 0) candidates.push(0);
+  let best = candidates[0];
+  let bestDiff = Math.abs((best / clk * 1000.0) - nsTarget);
+  for (const c of candidates) {
+    const diff = Math.abs((c / clk * 1000.0) - nsTarget);
+    if (diff < bestDiff) { best = c; bestDiff = diff; }
+  }
+  return best;
+}
+
+function renderEmpty() {
+  tbody.innerHTML = '';
+  for (const name of TIMING_NAMES) {
+    const tr = document.createElement('tr');
+    tr.dataset.name = name;
+    tr.innerHTML = `
+      <td>${name}</td>
+      <td class="editable" data-col="val_old"></td>
+      <td class="editable" data-col="ns_old"></td>
+      <td class="editable" data-col="val_new"></td>
+      <td class="editable" data-col="ns_new"></td>
+    `;
+    tbody.appendChild(tr);
+  }
+  document.getElementById('hValOld').textContent = 'Значение (старая)';
+  document.getElementById('hNsOld').textContent = 'нс (старая)';
+  document.getElementById('hValNew').textContent = 'Значение (новая)';
+  document.getElementById('hNsNew').textContent = 'нс (новая)';
+}
+
+function renderFromState() {
+  const baseFreq = getBaseFreq();
+  const newFreq = getNewFreq();
+  document.getElementById('hValOld').textContent = baseFreq ? `Значение @${Math.round(baseFreq)}` : 'Значение (старая)';
+  document.getElementById('hNsOld').textContent = baseFreq ? `нс @${Math.round(baseFreq)}` : 'нс (старая)';
+  document.getElementById('hValNew').textContent = newFreq ? `Значение @${Math.round(newFreq)}` : 'Значение (новая)';
+  document.getElementById('hNsNew').textContent = newFreq ? `нс @${Math.round(newFreq)}` : 'нс (новая)';
+
+  tbody.innerHTML = '';
+  for (const name of TIMING_NAMES) {
+    const cyc = timings[name];
+    const cycNew = newTimings[name];
+    const nsOld = (cyc !== undefined) ? nsFromCycles(cyc, baseFreq) : null;
+    const nsNew = (cycNew !== undefined) ? nsFromCycles(cycNew, newFreq) : null;
+
+    const tr = document.createElement('tr');
+    tr.dataset.name = name;
+    tr.innerHTML = `
+      <td>${name}</td>
+      <td class="editable" data-col="val_old">${cyc !== undefined ? cyc : ''}</td>
+      <td class="editable" data-col="ns_old">${nsOld !== null ? nsOld.toFixed(3) : ''}</td>
+      <td class="editable" data-col="val_new">${cycNew !== undefined ? cycNew : ''}</td>
+      <td class="editable" data-col="ns_new">${nsNew !== null ? nsNew.toFixed(3) : ''}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+// --- редактирование ячеек ---
+tbody.addEventListener('dblclick', (e) => {
+  const td = e.target.closest('td.editable');
+  if (!td) return;
+  const tr = td.closest('tr');
+  const name = tr.dataset.name;
+  const col = td.dataset.col;
+  const currentValue = td.textContent.trim();
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentValue;
+  td.textContent = '';
+  td.appendChild(input);
+  input.focus();
+  input.select();
+
+  function commit() {
+    const raw = input.value.trim().replace(',', '.');
+    input.remove();
+    if (raw === '') {
+      td.textContent = '';
+      return;
+    }
+
+    if (col === 'val_old' || col === 'val_new') {
+      const isOld = col === 'val_old';
+      const freq = isOld ? getBaseFreq() : getNewFreq();
+      if (!freq) {
+        alert('Сначала укажите ' + (isOld ? 'исходную' : 'целевую') + ' частоту.');
+        renderFromState();
+        return;
+      }
+      if (!/^-?\d+$/.test(raw)) {
+        alert('Тайминг (такты) должен быть целым числом.');
+        renderFromState();
+        return;
+      }
+      const cyc = parseInt(raw, 10);
+      (isOld ? timings : newTimings)[name] = cyc;
+      renderFromState();
+      return;
+    }
+
+    // ns_old / ns_new
+    const isOld = col === 'ns_old';
+    const freq = isOld ? getBaseFreq() : getNewFreq();
+    if (!freq) {
+      alert('Сначала укажите ' + (isOld ? 'исходную' : 'целевую') + ' частоту.');
+      renderFromState();
+      return;
+    }
+    const nsTarget = parseFloat(raw);
+    if (isNaN(nsTarget)) {
+      alert('Время должно быть числом (нс).');
+      renderFromState();
+      return;
+    }
+    const bestCyc = nearestCycleForNs(nsTarget, freq);
+    (isOld ? timings : newTimings)[name] = bestCyc;
+    renderFromState();
+    const bestNs = nsFromCycles(bestCyc, freq);
+    setStatus(`${name}: ближайшее время к ${nsTarget.toFixed(3)} нс — ${bestNs.toFixed(3)} нс (${bestCyc} такт.).`);
+  }
+
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') { commit(); }
+    if (ev.key === 'Escape') { input.remove(); renderFromState(); }
+  });
+  input.addEventListener('blur', commit);
+});
+
+// --- пересчёт ---
+document.getElementById('btnCalc').addEventListener('click', () => {
+  const baseFreq = getBaseFreq();
+  const newFreq = getNewFreq();
+  if (!baseFreq) { alert('Укажите исходную частоту.'); return; }
+  if (!newFreq) { alert('Укажите целевую частоту.'); return; }
+
+  const baseClk = baseFreq / 2.0;
+  const newClk = newFreq / 2.0;
+  newTimings = {};
+
+  for (const name of TIMING_NAMES) {
+    const cyc = timings[name];
+    if (cyc === undefined) continue;
+    const nsOld = cyc / baseClk * 1000.0;
+    let cycNew;
+    if (cyc === 0) {
+      cycNew = 0;
+    } else {
+      cycNew = Math.ceil(nsOld * newClk / 1000.0);
+      if (cycNew < 1) cycNew = 1;
+    }
+    newTimings[name] = cycNew;
+  }
+
+  renderFromState();
+  const count = Object.keys(timings).length;
+  setStatus(`Готово. Строк: ${count}.`);
+  setWarn(newFreq < baseFreq ? 'Целевая частота ниже исходной — тайминги в тактах увеличены, но задержки в нс могут отличаться.' : '');
+});
+
+// --- ручной старт ---
+document.getElementById('btnManual').addEventListener('click', () => {
+  timings = {};
+  newTimings = {};
+  baseFreqInput.value = '';
+  renderEmpty();
+  setStatus('Пустая таблица со стандартными таймингами ZenTimings. Введите частоту и значения.');
+  setWarn('');
+});
+
+// --- импорт HTML-отчёта ---
+document.getElementById('fileHtml').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(reader.result, 'text/html');
+      const table = doc.getElementById('timingsTable');
+      if (!table) throw new Error("Не найдена таблица Memory Timings (id='timingsTable').");
+
+      const rows = table.querySelectorAll('tr');
+      let baseFreq = null;
+      const parsed = {};
+
+      rows.forEach((tr, idx) => {
+        if (idx === 0) return; // заголовок
+        const cells = tr.querySelectorAll('td');
+        if (cells.length < 2) return;
+        const name = cells[0].textContent.trim();
+        const val0 = cells[1].textContent.trim();
+
+        if (name === 'Frequency') {
+          const f = parseFloat(val0);
+          if (!isNaN(f)) baseFreq = f;
+          return;
+        }
+        if (name === 'Ratio') return;
+        if (/^-?\d+$/.test(val0)) {
+          parsed[name] = parseInt(val0, 10);
+        }
+      });
+
+      if (baseFreq === null) throw new Error("Не удалось найти строку 'Frequency'.");
+
+      timings = parsed;
+      newTimings = {};
+      baseFreqInput.value = Math.round(baseFreq);
+      renderFromState();
+      setStatus(`Импортировано таймингов: ${Object.keys(parsed).length}. Частота из отчёта: ${Math.round(baseFreq)} MT/s (можно менять).`);
+      setWarn('');
+    } catch (err) {
+      alert('Ошибка чтения отчёта: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+  e.target.value = '';
+});
+
+// --- импорт своего CSV ---
+document.getElementById('fileCsv').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      let text = reader.result;
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // BOM
+      const lines = text.split(/\r?\n/).filter(l => l.length > 0);
+      if (lines.length === 0) throw new Error('Файл пуст.');
+
+      const header = lines[0].split(';');
+      if (header.length < 5) throw new Error('Ожидается 5 столбцов (экспорт этого приложения).');
+
+      const extractFreq = (col) => {
+        const m = col.match(/@(\d+)/);
+        return m ? parseFloat(m[1]) : null;
+      };
+      const baseFreq = extractFreq(header[1]);
+      const newFreq = extractFreq(header[3]);
+
+      const parsedOld = {};
+      const parsedNew = {};
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(';');
+        if (cols.length < 5 || !cols[0]) continue;
+        const name = cols[0];
+        if (/^-?\d+$/.test(cols[1].trim())) parsedOld[name] = parseInt(cols[1].trim(), 10);
+        if (/^-?\d+$/.test(cols[3].trim())) parsedNew[name] = parseInt(cols[3].trim(), 10);
+      }
+
+      if (Object.keys(parsedOld).length === 0) throw new Error('Не найдено ни одного тайминга.');
+
+      timings = parsedOld;
+      newTimings = parsedNew;
+      baseFreqInput.value = baseFreq ? Math.round(baseFreq) : '';
+      if (newFreq) newFreqInput.value = Math.round(newFreq);
+      renderFromState();
+      setStatus(`Импортировано из CSV: ${Object.keys(parsedOld).length} таймингов.`);
+      setWarn('');
+    } catch (err) {
+      alert('Ошибка чтения CSV: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+  e.target.value = '';
+});
+
+// --- экспорт CSV ---
+document.getElementById('btnExport').addEventListener('click', () => {
+  const rows = tbody.querySelectorAll('tr');
+  if (rows.length === 0) { alert('Таблица пуста.'); return; }
+
+  const baseFreq = getBaseFreq();
+  const newFreq = getNewFreq();
+  const header = [
+    'Тайминг',
+    baseFreq ? `Значение@${Math.round(baseFreq)}` : 'Значение (старая)',
+    baseFreq ? `нс@${Math.round(baseFreq)}` : 'нс (старая)',
+    newFreq ? `Значение@${Math.round(newFreq)}` : 'Значение (новая)',
+    newFreq ? `нс@${Math.round(newFreq)}` : 'нс (новая)',
+  ];
+
+  const lines = [header.join(';')];
+  rows.forEach(tr => {
+    const cells = tr.querySelectorAll('td');
+    const vals = Array.from(cells).map(td => td.textContent.trim());
+    lines.push(vals.join(';'));
+  });
+
+  const csvContent = '\uFEFF' + lines.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const bf = baseFreq ? Math.round(baseFreq) : 'old';
+  const nf = newFreq ? Math.round(newFreq) : 'new';
+  a.href = url;
+  a.download = `timings_${bf}_to_${nf}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setStatus('CSV сохранён.');
+});
+
+// стартовое состояние
+renderEmpty();
+</script>
+
+</body>
+</html>
