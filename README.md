@@ -1,4 +1,4 @@
-# ZenTimings Frequency Converter
+# Timings Frequency Converter
 
 Небольшое настольное приложение для пересчёта таймингов оперативной памяти
 (из отчёта [ZenTimings](https://github.com/irusanov/ZenTimings)) с одной
