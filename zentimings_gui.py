@@ -16,7 +16,6 @@ import re
 import sys
 import csv
 import math
-import subprocess
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
@@ -24,11 +23,11 @@ from pathlib import Path
 try:
     from bs4 import BeautifulSoup
 except ImportError:
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "beautifulsoup4"])
-    except subprocess.CalledProcessError:
-        pass
-    from bs4 import BeautifulSoup
+    print("Библиотека beautifulsoup4 не найдена.")
+    print("Запустите приложение через run_windows.bat (Windows) или run_linux.sh (Linux/Mac) —")
+    print("они сами создадут виртуальное окружение (.venv) и установят зависимости.")
+    print("Либо вручную: pip install beautifulsoup4")
+    sys.exit(1)
 
 
 TIMING_NAMES = [
@@ -38,6 +37,43 @@ TIMING_NAMES = [
     "STAG", "STAGsb", "MOD", "MODPDA", "MRD", "MRDPDA", "RFC", "RFC2", "REFI",
     "XP", "PHYWRD", "PHYWRL", "PHYRDL", "WRPRE", "RDPRE", "RDPOST", "WRPOST", "FGR",
 ]
+
+
+def parse_exported_csv(csv_path: Path):
+    """Читает CSV, ранее экспортированный этим приложением.
+    Возвращает (base_freq, new_freq, timings, new_timings) —
+    new_freq/new_timings могут быть None/пустыми, если новая частота
+    ещё не была посчитана на момент экспорта."""
+    with csv_path.open("r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.reader(f, delimiter=";")
+        rows = list(reader)
+
+    if not rows:
+        raise ValueError("Файл пуст.")
+
+    header = rows[0]
+    if len(header) < 5:
+        raise ValueError("Не похоже на CSV, экспортированный этим приложением (ожидается 5 столбцов).")
+
+    def extract_freq(col_name):
+        m = re.search(r"@(\d+)", col_name)
+        return float(m.group(1)) if m else None
+
+    base_freq = extract_freq(header[1])
+    new_freq = extract_freq(header[3])
+
+    timings = {}
+    new_timings = {}
+    for row in rows[1:]:
+        if len(row) < 5 or not row[0]:
+            continue
+        name = row[0]
+        if re.fullmatch(r"-?\d+", row[1].strip()):
+            timings[name] = int(row[1].strip())
+        if re.fullmatch(r"-?\d+", row[3].strip()):
+            new_timings[name] = int(row[3].strip())
+
+    return base_freq, new_freq, timings, new_timings
 
 
 def parse_zentimings(html_path: Path):
@@ -125,8 +161,9 @@ class App(tk.Tk):
     def _build_menu(self):
         menubar = tk.Menu(self)
         file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label="Новый (ввести вручную)...", command=self.new_manual)
-        file_menu.add_command(label="Открыть отчёт...", command=self.browse_file)
+        file_menu.add_command(label="Новый расчёт...", command=self.new_manual)
+        file_menu.add_command(label="Открыть отчёт ZenTimings...", command=self.browse_file)
+        file_menu.add_command(label="Импорт из CSV...", command=self.browse_csv)
         file_menu.add_command(label="Экспорт в CSV...", command=self.export_csv)
         file_menu.add_separator()
         file_menu.add_command(label="Выход", command=self.destroy)
@@ -137,7 +174,7 @@ class App(tk.Tk):
         top = ttk.Frame(self, padding=10)
         top.pack(fill="x")
 
-        ttk.Label(top, text="Отчёт ZenTimings:").grid(row=0, column=0, sticky="w")
+        ttk.Label(top, text="Отчёт:").grid(row=0, column=0, sticky="w")
         ttk.Entry(top, textvariable=self.report_path, width=55).grid(row=0, column=1, padx=5)
         ttk.Button(top, text="Обзор...", command=self.browse_file).grid(row=0, column=2)
 
@@ -172,7 +209,7 @@ class App(tk.Tk):
 
         hint = ttk.Label(
             self,
-            text="Двойной клик по «Значение» или «нс» — редактировать",
+            text="Двойной клик по «Значение» или «нс» — редактировать (при вводе нс подбирается ближайшее целое число тактов). Частоту можно менять выше.",
             foreground="gray",
         )
         hint.pack(fill="x", padx=10)
@@ -201,6 +238,62 @@ class App(tk.Tk):
         self.rows = []
         self._populate_original()
         self.status.config(text=f"Импортировано таймингов: {len(self.timings)}. Частота из отчёта: {int(base_freq)} MT/s (можно менять).")
+
+    def browse_csv(self):
+        path = filedialog.askopenfilename(
+            title="Выберите CSV, экспортированный этим приложением",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        try:
+            base_freq, new_freq, timings, new_timings = parse_exported_csv(Path(path))
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось прочитать CSV: {e}")
+            return
+
+        if not timings:
+            messagebox.showerror("Ошибка", "В файле не найдено ни одного тайминга.")
+            return
+
+        self.report_path.set(path)
+        self.base_freq_var.set(str(int(base_freq)) if base_freq else "")
+        self.new_freq_var.set(str(int(new_freq)) if new_freq else self.new_freq_var.get())
+        self.timings = timings
+        self.new_timings = new_timings
+        self.order = list(TIMING_NAMES)
+        self.base_freq = base_freq
+        self.new_freq = new_freq
+        self.rows = []
+
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        base_label = f"Значение @{int(base_freq)}" if base_freq else "Значение (старая)"
+        ns_base_label = f"нс @{int(base_freq)}" if base_freq else "нс (старая)"
+        new_label = f"Значение @{int(new_freq)}" if new_freq else "Значение (новая)"
+        ns_new_label = f"нс @{int(new_freq)}" if new_freq else "нс (новая)"
+        self.tree.heading("val_old", text=base_label)
+        self.tree.heading("ns_old", text=ns_base_label)
+        self.tree.heading("val_new", text=new_label)
+        self.tree.heading("ns_new", text=ns_new_label)
+
+        base_clk = (base_freq / 2.0) if base_freq else None
+        new_clk = (new_freq / 2.0) if new_freq else None
+        for name in self.order:
+            cyc = timings.get(name)
+            cyc_new = new_timings.get(name)
+            ns_old = f"{(cyc / base_clk * 1000.0):.3f}" if (cyc is not None and base_clk) else ""
+            ns_new = f"{(cyc_new / new_clk * 1000.0):.3f}" if (cyc_new is not None and new_clk) else ""
+            self.tree.insert("", "end", iid=name, values=(
+                name,
+                cyc if cyc is not None else "",
+                ns_old,
+                cyc_new if cyc_new is not None else "",
+                ns_new,
+            ))
+
+        self.status.config(text=f"Импортировано из CSV: {len(timings)} таймингов.")
 
     def new_manual(self):
         """Начать с чистого листа — фиксированный список таймингов ZenTimings, значения пустые."""
