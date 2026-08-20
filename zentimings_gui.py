@@ -114,10 +114,13 @@ class App(tk.Tk):
         self._edit_save_fn = None
         self._edit_row_iid = None
         self._edit_col = None
+        self._last_size = None
 
         self._build_menu()
         self._build_widgets()
         self.new_manual()
+        self.update_idletasks()
+        self._last_size = (self.winfo_width(), self.winfo_height())
 
     def _build_menu(self):
         menubar = tk.Menu(self)
@@ -169,7 +172,7 @@ class App(tk.Tk):
 
         hint = ttk.Label(
             self,
-            text="Двойной клик по «Значение» или «нс» — редактировать (при вводе нс подбирается ближайшее целое число тактов). Частоту можно менять выше.",
+            text="Двойной клик по «Значение» или «нс» — редактировать",
             foreground="gray",
         )
         hint.pack(fill="x", padx=10)
@@ -349,7 +352,15 @@ class App(tk.Tk):
     def _on_tree_configure(self, event=None):
         """При изменении размера окна/таблицы: если поле редактирования открыто —
         сдвигает его вместе со строкой, сохраняя введённый текст. Если поле
-        пустое (пользователь ничего не ввёл), закрывает его без сохранения."""
+        пустое (пользователь ничего не ввёл), закрывает его без сохранения.
+        Срабатывает только на реальное изменение размера окна, а не на любые
+        служебные Configure-события (иначе поле закрывалось бы сразу после
+        открытия, не давая ничего ввести)."""
+        size = (self.winfo_width(), self.winfo_height())
+        if size == self._last_size:
+            return
+        self._last_size = size
+
         entry = self._edit_entry
         if entry is None:
             return
