@@ -4,6 +4,8 @@
 (из отчёта [ZenTimings](https://github.com/irusanov/ZenTimings)) с одной
 частоты на другую с сохранением задержки в наносекундах.
 
+Сайт: https://pcowtawer.github.io/timings-converter/
+
 ## Возможности
 
 - Импорт таймингов и исходной частоты прямо из html-отчёта ZenTimings
