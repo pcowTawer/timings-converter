@@ -125,6 +125,15 @@
     color: #6b7280;
     margin-bottom: 8px;
   }
+  .lang-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+  .lang-btn.active {
+    background: #2563eb;
+    color: white;
+    border-color: #2563eb;
+  }
   @media (prefers-color-scheme: dark) {
     body { background: #111827; color: #e5e7eb; }
     .panel { background: #1f2937; border-color: #374151; }
@@ -138,51 +147,57 @@
 </head>
 <body>
 
-<h1>Timings Frequency Converter</h1>
+<div class="row" style="justify-content: space-between; margin-bottom: 8px;">
+  <h1 data-i18n="title" style="margin:0">Timings Frequency Converter</h1>
+  <div>
+    <button id="langRu" class="lang-btn">RU</button>
+    <button id="langEn" class="lang-btn">EN</button>
+  </div>
+</div>
 
 <div class="panel">
   <div class="row">
-    <label>Импорт отчёта ZenTimings (.html)</label>
+    <label data-i18n="importHtml">Импорт отчёта ZenTimings (.html)</label>
     <input type="file" id="fileHtml" accept=".html,.htm">
   </div>
   <div class="row">
-    <label>Импорт CSV</label>
+    <label data-i18n="importCsv">Импорт CSV (свой экспорт)</label>
     <input type="file" id="fileCsv" accept=".csv">
   </div>
   <div class="row">
-    <label>Очистить таблицу</label>
-    <button id="btnManual">Пустая таблица</button>
+    <label data-i18n="orManual">Или начать вручную</label>
+    <button id="btnManual" data-i18n="emptyTable">Пустая таблица</button>
   </div>
   <div class="row">
-    <label>Исходная частота (MT/s)</label>
+    <label data-i18n="baseFreqLabel">Исходная частота (MT/s)</label>
     <input type="number" id="baseFreq" step="1">
-    <label style="min-width:auto">Целевая частота (MT/s)</label>
+    <label style="min-width:auto" data-i18n="newFreqLabel">Целевая частота (MT/s)</label>
     <input type="number" id="newFreq" step="1" value="6400">
   </div>
   <div class="row">
-    <label>Режим округления</label>
-    <label style="min-width:auto"><input type="radio" name="mode" value="safe" id="modeSafe" checked> Безопасный (не хуже исходного)</label>
-    <label style="min-width:auto"><input type="radio" name="mode" value="nearest" id="modeNearest"> Ближайшее значение</label>
+    <label data-i18n="roundMode">Режим округления</label>
+    <label style="min-width:auto"><input type="radio" name="mode" value="safe" id="modeSafe" checked> <span data-i18n="modeSafeLabel">Безопасный (не хуже исходного)</span></label>
+    <label style="min-width:auto"><input type="radio" name="mode" value="nearest" id="modeNearest"> <span data-i18n="modeNearestLabel">Ближайшее значение</span></label>
   </div>
   <div class="row">
-    <button class="primary" id="btnCalc">Пересчитать</button>
-    <button id="btnExport">Экспорт в CSV</button>
+    <button class="primary" id="btnCalc" data-i18n="calcBtn">Пересчитать</button>
+    <button id="btnExport" data-i18n="exportBtn">Экспорт в CSV</button>
   </div>
   <div id="warn"></div>
   <div id="status"></div>
 </div>
 
-<p class="hint">Двойной клик по ячейке «Значение» или «нс» — редактировать. При вводе нс подбирается ближайший целый такт.</p>
+<p class="hint" data-i18n="hint">Двойной клик по ячейке «Значение» или «нс» — редактировать. При вводе нс подбирается ближайший целый такт.</p>
 
 <div class="table-wrap">
 <table id="out">
   <thead>
     <tr>
-      <th>Тайминг</th>
-      <th id="hValOld">Значение (старая)</th>
-      <th id="hNsOld">нс (старая)</th>
-      <th id="hValNew">Значение (новая)</th>
-      <th id="hNsNew">нс (новая)</th>
+      <th data-i18n="colTiming">Тайминг</th>
+      <th id="hValOld" data-i18n="colValOld">Значение (старая)</th>
+      <th id="hNsOld" data-i18n="colNsOld">нс (старая)</th>
+      <th id="hValNew" data-i18n="colValNew">Значение (новая)</th>
+      <th id="hNsNew" data-i18n="colNsNew">нс (новая)</th>
     </tr>
   </thead>
   <tbody id="tbody"></tbody>
@@ -190,6 +205,132 @@
 </div>
 
 <script>
+const I18N = {
+  ru: {
+    title: "Timings Frequency Converter",
+    importHtml: "Импорт отчёта ZenTimings (.html)",
+    importCsv: "Импорт CSV (свой экспорт)",
+    orManual: "Или начать вручную",
+    emptyTable: "Пустая таблица",
+    baseFreqLabel: "Исходная частота (MT/s)",
+    newFreqLabel: "Целевая частота (MT/s)",
+    roundMode: "Режим округления",
+    modeSafeLabel: "Безопасный (не хуже исходного)",
+    modeNearestLabel: "Ближайшее значение",
+    calcBtn: "Пересчитать",
+    exportBtn: "Экспорт в CSV",
+    hint: "Двойной клик по ячейке «Значение» или «нс» — редактировать. При вводе нс подбирается ближайший целый такт.",
+    colTiming: "Тайминг",
+    colValOld: "Значение (старая)",
+    colNsOld: "нс (старая)",
+    colValNew: "Значение (новая)",
+    colNsNew: "нс (новая)",
+    colValOldAt: (f) => `Значение @${f}`,
+    colNsOldAt: (f) => `нс @${f}`,
+    colValNewAt: (f) => `Значение @${f}`,
+    colNsNewAt: (f) => `нс @${f}`,
+    statusEmpty: "Пустая таблица со стандартными таймингами ZenTimings. Введите частоту и значения.",
+    statusImportedHtml: (n, f) => `Импортировано таймингов: ${n}. Частота из отчёта: ${f} MT/s (можно менять).`,
+    statusImportedCsv: (n) => `Импортировано из CSV: ${n} таймингов.`,
+    statusDone: (n, mode) => `Готово. Строк: ${n}. Режим: ${mode}.`,
+    modeSafeWord: "безопасный",
+    modeNearestWord: "ближайшее значение",
+    statusNearest: (name, target, best, cyc) => `${name}: ближайшее время к ${target} нс — ${best} нс (${cyc} такт.).`,
+    statusCsvSaved: "CSV сохранён.",
+    warnLowerFreq: "Целевая частота ниже исходной — тайминги в тактах увеличены, но задержки в нс могут отличаться.",
+    alertBaseFreqFirst: (which) => `Сначала укажите ${which} частоту.`,
+    which_old: "исходную",
+    which_new: "целевую",
+    alertIntError: "Тайминг (такты) должен быть целым числом.",
+    alertNsError: "Время должно быть числом (нс).",
+    alertBaseFreqNeeded: "Укажите исходную частоту.",
+    alertNewFreqNeeded: "Укажите целевую частоту.",
+    alertTableEmpty: "Таблица пуста.",
+    errHtmlNoTable: "Не найдена таблица Memory Timings (id='timingsTable').",
+    errHtmlNoFreq: "Не удалось найти строку 'Frequency'.",
+    errHtmlRead: "Ошибка чтения отчёта: ",
+    errCsvEmpty: "Файл пуст.",
+    errCsvCols: "Ожидается 5 столбцов (экспорт этого приложения).",
+    errCsvNoTimings: "Не найдено ни одного тайминга.",
+    errCsvRead: "Ошибка чтения CSV: ",
+  },
+  en: {
+    title: "Timings Frequency Converter",
+    importHtml: "Import ZenTimings report (.html)",
+    importCsv: "Import CSV (own export)",
+    orManual: "Or start manually",
+    emptyTable: "Empty table",
+    baseFreqLabel: "Base frequency (MT/s)",
+    newFreqLabel: "Target frequency (MT/s)",
+    roundMode: "Rounding mode",
+    modeSafeLabel: "Safe (not worse than original)",
+    modeNearestLabel: "Nearest value",
+    calcBtn: "Convert",
+    exportBtn: "Export to CSV",
+    hint: "Double-click a \"Value\" or \"ns\" cell to edit. Entering ns snaps to the nearest whole clock cycle.",
+    colTiming: "Timing",
+    colValOld: "Value (old)",
+    colNsOld: "ns (old)",
+    colValNew: "Value (new)",
+    colNsNew: "ns (new)",
+    colValOldAt: (f) => `Value @${f}`,
+    colNsOldAt: (f) => `ns @${f}`,
+    colValNewAt: (f) => `Value @${f}`,
+    colNsNewAt: (f) => `ns @${f}`,
+    statusEmpty: "Empty table with standard ZenTimings entries. Enter the frequency and values.",
+    statusImportedHtml: (n, f) => `Imported ${n} timings. Frequency from report: ${f} MT/s (editable).`,
+    statusImportedCsv: (n) => `Imported ${n} timings from CSV.`,
+    statusDone: (n, mode) => `Done. Rows: ${n}. Mode: ${mode}.`,
+    modeSafeWord: "safe",
+    modeNearestWord: "nearest value",
+    statusNearest: (name, target, best, cyc) => `${name}: closest time to ${target} ns is ${best} ns (${cyc} cycles).`,
+    statusCsvSaved: "CSV saved.",
+    warnLowerFreq: "Target frequency is lower than base — cycle counts were increased, but ns delays may differ.",
+    alertBaseFreqFirst: (which) => `Please set the ${which} frequency first.`,
+    which_old: "base",
+    which_new: "target",
+    alertIntError: "Timing (cycles) must be a whole number.",
+    alertNsError: "Time must be a number (ns).",
+    alertBaseFreqNeeded: "Please set the base frequency.",
+    alertNewFreqNeeded: "Please set the target frequency.",
+    alertTableEmpty: "Table is empty.",
+    errHtmlNoTable: "Memory Timings table not found (id='timingsTable').",
+    errHtmlNoFreq: "Could not find the 'Frequency' row.",
+    errHtmlRead: "Error reading report: ",
+    errCsvEmpty: "File is empty.",
+    errCsvCols: "Expected 5 columns (export from this app).",
+    errCsvNoTimings: "No timings found.",
+    errCsvRead: "Error reading CSV: ",
+  },
+};
+
+let LANG = (localStorage.getItem('tfc_lang')) || (navigator.language && navigator.language.toLowerCase().startsWith('ru') ? 'ru' : 'en');
+function t(key, ...args) {
+  const entry = I18N[LANG][key];
+  return typeof entry === 'function' ? entry(...args) : entry;
+}
+
+function applyStaticI18n() {
+  document.documentElement.lang = LANG;
+  document.title = t('title');
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    el.textContent = t(key);
+  });
+  document.getElementById('langRu').classList.toggle('active', LANG === 'ru');
+  document.getElementById('langEn').classList.toggle('active', LANG === 'en');
+}
+
+function setLang(lang) {
+  LANG = lang;
+  localStorage.setItem('tfc_lang', lang);
+  applyStaticI18n();
+  renderFromState();
+}
+
+document.getElementById('langRu').addEventListener('click', () => setLang('ru'));
+document.getElementById('langEn').addEventListener('click', () => setLang('en'));
+
 const TIMING_NAMES = [
   "RFCsb","CL","RCDWR","RCDRD","RP","RAS","RC","RRDS","RRDL","FAW",
   "WTRS","WTRL","WR","RDRDSCL","WRWRSCL","CWL","RTP","RDWR","WRRD",
@@ -198,8 +339,8 @@ const TIMING_NAMES = [
   "XP","PHYWRD","PHYWRL","PHYRDL","WRPRE","RDPRE","RDPOST","WRPOST","FGR"
 ];
 
-let timings = {};     // {name: cycles} на исходной частоте
-let newTimings = {};  // {name: cycles} на новой частоте
+let timings = {};     // {name: cycles} at the original frequency
+let newTimings = {};  // {name: cycles} at the new frequency
 
 const baseFreqInput = document.getElementById('baseFreq');
 const newFreqInput = document.getElementById('newFreq');
@@ -255,19 +396,19 @@ function renderEmpty() {
     `;
     tbody.appendChild(tr);
   }
-  document.getElementById('hValOld').textContent = 'Значение (старая)';
-  document.getElementById('hNsOld').textContent = 'нс (старая)';
-  document.getElementById('hValNew').textContent = 'Значение (новая)';
-  document.getElementById('hNsNew').textContent = 'нс (новая)';
+  document.getElementById('hValOld').textContent = t('colValOld');
+  document.getElementById('hNsOld').textContent = t('colNsOld');
+  document.getElementById('hValNew').textContent = t('colValNew');
+  document.getElementById('hNsNew').textContent = t('colNsNew');
 }
 
 function renderFromState() {
   const baseFreq = getBaseFreq();
   const newFreq = getNewFreq();
-  document.getElementById('hValOld').textContent = baseFreq ? `Значение @${Math.round(baseFreq)}` : 'Значение (старая)';
-  document.getElementById('hNsOld').textContent = baseFreq ? `нс @${Math.round(baseFreq)}` : 'нс (старая)';
-  document.getElementById('hValNew').textContent = newFreq ? `Значение @${Math.round(newFreq)}` : 'Значение (новая)';
-  document.getElementById('hNsNew').textContent = newFreq ? `нс @${Math.round(newFreq)}` : 'нс (новая)';
+  document.getElementById('hValOld').textContent = baseFreq ? t('colValOldAt', Math.round(baseFreq)) : t('colValOld');
+  document.getElementById('hNsOld').textContent = baseFreq ? t('colNsOldAt', Math.round(baseFreq)) : t('colNsOld');
+  document.getElementById('hValNew').textContent = newFreq ? t('colValNewAt', Math.round(newFreq)) : t('colValNew');
+  document.getElementById('hNsNew').textContent = newFreq ? t('colNsNewAt', Math.round(newFreq)) : t('colNsNew');
 
   tbody.innerHTML = '';
   for (const name of TIMING_NAMES) {
@@ -318,12 +459,12 @@ tbody.addEventListener('dblclick', (e) => {
       const isOld = col === 'val_old';
       const freq = isOld ? getBaseFreq() : getNewFreq();
       if (!freq) {
-        alert('Сначала укажите ' + (isOld ? 'исходную' : 'целевую') + ' частоту.');
+        alert(t('alertBaseFreqFirst', t(isOld ? 'which_old' : 'which_new')));
         renderFromState();
         return;
       }
       if (!/^-?\d+$/.test(raw)) {
-        alert('Тайминг (такты) должен быть целым числом.');
+        alert(t('alertIntError'));
         renderFromState();
         return;
       }
@@ -337,13 +478,13 @@ tbody.addEventListener('dblclick', (e) => {
     const isOld = col === 'ns_old';
     const freq = isOld ? getBaseFreq() : getNewFreq();
     if (!freq) {
-      alert('Сначала укажите ' + (isOld ? 'исходную' : 'целевую') + ' частоту.');
+      alert(t('alertBaseFreqFirst', t(isOld ? 'which_old' : 'which_new')));
       renderFromState();
       return;
     }
     const nsTarget = parseFloat(raw);
     if (isNaN(nsTarget)) {
-      alert('Время должно быть числом (нс).');
+      alert(t('alertNsError'));
       renderFromState();
       return;
     }
@@ -351,7 +492,7 @@ tbody.addEventListener('dblclick', (e) => {
     (isOld ? timings : newTimings)[name] = bestCyc;
     renderFromState();
     const bestNs = nsFromCycles(bestCyc, freq);
-    setStatus(`${name}: ближайшее время к ${nsTarget.toFixed(3)} нс — ${bestNs.toFixed(3)} нс (${bestCyc} такт.).`);
+    setStatus(t('statusNearest', name, nsTarget.toFixed(3), bestNs.toFixed(3), bestCyc));
   }
 
   input.addEventListener('keydown', (ev) => {
@@ -365,8 +506,8 @@ tbody.addEventListener('dblclick', (e) => {
 document.getElementById('btnCalc').addEventListener('click', () => {
   const baseFreq = getBaseFreq();
   const newFreq = getNewFreq();
-  if (!baseFreq) { alert('Укажите исходную частоту.'); return; }
-  if (!newFreq) { alert('Укажите целевую частоту.'); return; }
+  if (!baseFreq) { alert(t('alertBaseFreqNeeded')); return; }
+  if (!newFreq) { alert(t('alertNewFreqNeeded')); return; }
 
   const mode = document.getElementById('modeNearest').checked ? 'nearest' : 'safe';
   const baseClk = baseFreq / 2.0;
@@ -404,7 +545,8 @@ document.getElementById('btnCalc').addEventListener('click', () => {
 
   renderFromState();
   const count = Object.keys(timings).length;
-  setStatus(`Готово. Строк: ${count}. Режим: ${mode === 'nearest' ? 'ближайшее значение' : 'безопасный'}.`);
+  setStatus(t('statusDone', count, mode === 'nearest' ? t('modeNearestWord') : t('modeSafeWord')));
+  setWarn(newFreq < baseFreq ? t('warnLowerFreq') : '');
 });
 
 // --- ручной старт ---
@@ -413,7 +555,7 @@ document.getElementById('btnManual').addEventListener('click', () => {
   newTimings = {};
   baseFreqInput.value = '';
   renderEmpty();
-  setStatus('Пустая таблица со стандартными таймингами ZenTimings. Введите частоту и значения.');
+  setStatus(t('statusEmpty'));
   setWarn('');
 });
 
@@ -427,7 +569,7 @@ document.getElementById('fileHtml').addEventListener('change', (e) => {
       const parser = new DOMParser();
       const doc = parser.parseFromString(reader.result, 'text/html');
       const table = doc.getElementById('timingsTable');
-      if (!table) throw new Error("Не найдена таблица Memory Timings (id='timingsTable').");
+      if (!table) throw new Error(t('errHtmlNoTable'));
 
       const rows = table.querySelectorAll('tr');
       let baseFreq = null;
@@ -451,16 +593,16 @@ document.getElementById('fileHtml').addEventListener('change', (e) => {
         }
       });
 
-      if (baseFreq === null) throw new Error("Не удалось найти строку 'Frequency'.");
+      if (baseFreq === null) throw new Error(t('errHtmlNoFreq'));
 
       timings = parsed;
       newTimings = {};
       baseFreqInput.value = Math.round(baseFreq);
       renderFromState();
-      setStatus(`Импортировано таймингов: ${Object.keys(parsed).length}. Частота из отчёта: ${Math.round(baseFreq)} MT/s (можно менять).`);
+      setStatus(t('statusImportedHtml', Object.keys(parsed).length, Math.round(baseFreq)));
       setWarn('');
     } catch (err) {
-      alert('Ошибка чтения отчёта: ' + err.message);
+      alert(t('errHtmlRead') + err.message);
     }
   };
   reader.readAsText(file, 'utf-8');
@@ -477,10 +619,10 @@ document.getElementById('fileCsv').addEventListener('change', (e) => {
       let text = reader.result;
       if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // BOM
       const lines = text.split(/\r?\n/).filter(l => l.length > 0);
-      if (lines.length === 0) throw new Error('Файл пуст.');
+      if (lines.length === 0) throw new Error(t('errCsvEmpty'));
 
       const header = lines[0].split(';');
-      if (header.length < 5) throw new Error('Ожидается 5 столбцов (экспорт этого приложения).');
+      if (header.length < 5) throw new Error(t('errCsvCols'));
 
       const extractFreq = (col) => {
         const m = col.match(/@(\d+)/);
@@ -499,17 +641,17 @@ document.getElementById('fileCsv').addEventListener('change', (e) => {
         if (/^-?\d+$/.test(cols[3].trim())) parsedNew[name] = parseInt(cols[3].trim(), 10);
       }
 
-      if (Object.keys(parsedOld).length === 0) throw new Error('Не найдено ни одного тайминга.');
+      if (Object.keys(parsedOld).length === 0) throw new Error(t('errCsvNoTimings'));
 
       timings = parsedOld;
       newTimings = parsedNew;
       baseFreqInput.value = baseFreq ? Math.round(baseFreq) : '';
       if (newFreq) newFreqInput.value = Math.round(newFreq);
       renderFromState();
-      setStatus(`Импортировано из CSV: ${Object.keys(parsedOld).length} таймингов.`);
+      setStatus(t('statusImportedCsv', Object.keys(parsedOld).length));
       setWarn('');
     } catch (err) {
-      alert('Ошибка чтения CSV: ' + err.message);
+      alert(t('errCsvRead') + err.message);
     }
   };
   reader.readAsText(file, 'utf-8');
@@ -519,16 +661,16 @@ document.getElementById('fileCsv').addEventListener('change', (e) => {
 // --- экспорт CSV ---
 document.getElementById('btnExport').addEventListener('click', () => {
   const rows = tbody.querySelectorAll('tr');
-  if (rows.length === 0) { alert('Таблица пуста.'); return; }
+  if (rows.length === 0) { alert(t('alertTableEmpty')); return; }
 
   const baseFreq = getBaseFreq();
   const newFreq = getNewFreq();
   const header = [
-    'Тайминг',
-    baseFreq ? `Значение@${Math.round(baseFreq)}` : 'Значение (старая)',
-    baseFreq ? `нс@${Math.round(baseFreq)}` : 'нс (старая)',
-    newFreq ? `Значение@${Math.round(newFreq)}` : 'Значение (новая)',
-    newFreq ? `нс@${Math.round(newFreq)}` : 'нс (новая)',
+    t('colTiming'),
+    baseFreq ? t('colValOldAt', Math.round(baseFreq)) : t('colValOld'),
+    baseFreq ? t('colNsOldAt', Math.round(baseFreq)) : t('colNsOld'),
+    newFreq ? t('colValNewAt', Math.round(newFreq)) : t('colValNew'),
+    newFreq ? t('colNsNewAt', Math.round(newFreq)) : t('colNsNew'),
   ];
 
   const lines = [header.join(';')];
@@ -550,10 +692,11 @@ document.getElementById('btnExport').addEventListener('click', () => {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  setStatus('CSV сохранён.');
+  setStatus(t('statusCsvSaved'));
 });
 
 // стартовое состояние
+applyStaticI18n();
 renderEmpty();
 </script>
 

@@ -1,30 +1,69 @@
 #!/usr/bin/env python3
 """
+Timings Frequency Converter — консольная версия.
+
 Пересчёт таймингов оперативной памяти из отчёта ZenTimings (.html)
 на другую частоту с сохранением (или увеличением) задержки в наносекундах.
 
-Использование:
+Console version. Recalculates ZenTimings memory timings for a different
+frequency, preserving (or improving) the latency in nanoseconds.
+
+Использование / Usage:
     python timings_convert.py
-Скрипт спросит:
-    1) путь к html-отчёту ZenTimings
-    2) целевую частоту памяти (MT/s)
-и выведет / сохранит таблицу с 5 столбцами:
-    Тайминг | Значение(старая) | нс(старая) | Значение(новая) | нс(новая)
+Скрипт спросит язык, путь к отчёту, целевую частоту и режим округления.
+The script asks for the language, report path, target frequency and mode.
 """
 
 import re
 import sys
 import csv
+import math
 from pathlib import Path
 
 try:
     from bs4 import BeautifulSoup
 except ImportError:
-    print("Библиотека beautifulsoup4 не найдена.")
-    print("Запустите скрипт через run_windows.bat (Windows) или run_linux.sh (Linux/Mac) —")
-    print("они сами создадут виртуальное окружение (.venv) и установят зависимости.")
-    print("Либо вручную: pip install beautifulsoup4")
+    print("Библиотека beautifulsoup4 не найдена. / beautifulsoup4 library not found.")
+    print("Установите: pip install beautifulsoup4")
     sys.exit(1)
+
+
+TR = {
+    "ask_lang": {
+        "ru": "Выберите язык / Choose language — [1] Русский / [2] English: ",
+        "en": "Выберите язык / Choose language — [1] Русский / [2] English: ",
+    },
+    "ask_path": {"ru": "Путь к html-отчёту ZenTimings: ", "en": "Path to ZenTimings html report: "},
+    "file_not_found": {"ru": "Файл не найден: {path}", "en": "File not found: {path}"},
+    "ask_freq": {
+        "ru": "Целевая частота памяти, MT/s (например 6400): ",
+        "en": "Target memory frequency, MT/s (e.g. 6400): ",
+    },
+    "bad_freq": {"ru": "Некорректное значение частоты.", "en": "Invalid frequency value."},
+    "ask_mode": {
+        "ru": "Режим округления — [1] безопасный, не хуже исходного (по умолчанию) / [2] ближайшее значение: ",
+        "en": "Rounding mode — [1] safe, not worse than original (default) / [2] nearest value: ",
+    },
+    "base_freq_from_report": {"ru": "Исходная частота из отчёта: {f:.0f} MT/s", "en": "Base frequency from report: {f:.0f} MT/s"},
+    "timings_found": {"ru": "Найдено таймингов: {n}", "en": "Timings found: {n}"},
+    "saved": {"ru": "Сохранено: {path}", "en": "Saved: {path}"},
+    "col_timing": {"ru": "Тайминг", "en": "Timing"},
+    "err_no_table": {
+        "ru": "Не найдена таблица Memory Timings (id='timingsTable') в отчёте.",
+        "en": "Memory Timings table not found (id='timingsTable') in the report.",
+    },
+    "err_no_freq_row": {
+        "ru": "Не удалось найти строку 'Frequency' в таблице Memory Timings.",
+        "en": "Could not find the 'Frequency' row in the Memory Timings table.",
+    },
+}
+
+LANG = "ru"
+
+
+def tr(key, **kwargs):
+    text = TR[key][LANG]
+    return text.format(**kwargs) if kwargs else text
 
 
 def parse_zentimings(html_path: Path):
@@ -33,14 +72,14 @@ def parse_zentimings(html_path: Path):
 
     table = soup.find("table", id="timingsTable")
     if table is None:
-        raise ValueError("Не найдена таблица Memory Timings (id='timingsTable') в отчёте.")
+        raise ValueError(tr("err_no_table"))
 
     rows = table.find_all("tr")
     timings = {}
     base_freq = None
 
-    for tr in rows[1:]:  # первая строка — заголовок
-        cells = tr.find_all("td")
+    for tr_ in rows[1:]:  # первая строка — заголовок
+        cells = tr_.find_all("td")
         if len(cells) < 2:
             continue
         name = cells[0].get_text(strip=True)
@@ -63,7 +102,7 @@ def parse_zentimings(html_path: Path):
         # пропускаем нечисловые (Enabled/Disabled, 1T, "2/3/1", RFCns, REFIns, RefreshMode и т.п.)
 
     if base_freq is None:
-        raise ValueError("Не удалось найти строку 'Frequency' в таблице Memory Timings.")
+        raise ValueError(tr("err_no_freq_row"))
 
     return base_freq, timings
 
@@ -81,8 +120,6 @@ def convert_timings(base_freq: float, new_freq: float, timings: dict, mode: str 
     mode="nearest": просто ближайшее достижимое значение, без
         гарантии "не хуже исходного" в любую сторону.
     """
-    import math
-
     base_clk = base_freq / 2.0  # действительная частота DRAM, МГц
     new_clk = new_freq / 2.0
 
@@ -115,9 +152,9 @@ def convert_timings(base_freq: float, new_freq: float, timings: dict, mode: str 
 
 def print_table(rows, base_freq, new_freq):
     header = (
-        f"{'Тайминг':<12}{'Знач.@' + str(int(base_freq)):<12}"
-        f"{'нс@' + str(int(base_freq)):<12}{'Знач.@' + str(int(new_freq)):<12}"
-        f"{'нс@' + str(int(new_freq)):<12}"
+        f"{tr('col_timing'):<12}{'@' + str(int(base_freq)):<12}"
+        f"{'ns@' + str(int(base_freq)):<12}{'@' + str(int(new_freq)):<12}"
+        f"{'ns@' + str(int(new_freq)):<12}"
     )
     print(header)
     print("-" * len(header))
@@ -129,40 +166,41 @@ def save_csv(rows, base_freq, new_freq, out_path: Path):
     with out_path.open("w", newline="", encoding="utf-8-sig") as f:
         writer = csv.writer(f, delimiter=";")
         writer.writerow([
-            "Тайминг",
-            f"Значение@{int(base_freq)}",
-            f"нс@{int(base_freq)}",
-            f"Значение@{int(new_freq)}",
-            f"нс@{int(new_freq)}",
+            tr("col_timing"),
+            f"{'Значение' if LANG == 'ru' else 'Value'}@{int(base_freq)}",
+            f"{'нс' if LANG == 'ru' else 'ns'}@{int(base_freq)}",
+            f"{'Значение' if LANG == 'ru' else 'Value'}@{int(new_freq)}",
+            f"{'нс' if LANG == 'ru' else 'ns'}@{int(new_freq)}",
         ])
         for name, cyc, ns_old, cyc_new, ns_new in rows:
             writer.writerow([name, cyc, f"{ns_old:.3f}", cyc_new, f"{ns_new:.3f}"])
-    print(f"\nСохранено: {out_path}")
+    print(tr("saved", path=out_path))
 
 
 def main():
-    path_str = input("Путь к html-отчёту ZenTimings: ").strip().strip('"')
+    global LANG
+    lang_str = input(TR["ask_lang"]["ru"]).strip()
+    LANG = "en" if lang_str == "2" else "ru"
+
+    path_str = input(tr("ask_path")).strip().strip('"')
     html_path = Path(path_str)
     if not html_path.exists():
-        print(f"Файл не найден: {html_path}")
+        print(tr("file_not_found", path=html_path))
         sys.exit(1)
 
-    freq_str = input("Целевая частота памяти, MT/s (например 6400): ").strip()
+    freq_str = input(tr("ask_freq")).strip()
     try:
         new_freq = float(freq_str)
     except ValueError:
-        print("Некорректное значение частоты.")
+        print(tr("bad_freq"))
         sys.exit(1)
 
-    mode_str = input(
-        "Режим округления — [1] безопасный, не хуже исходного (по умолчанию) "
-        "/ [2] ближайшее значение: "
-    ).strip()
+    mode_str = input(tr("ask_mode")).strip()
     mode = "nearest" if mode_str == "2" else "safe"
 
     base_freq, timings = parse_zentimings(html_path)
-    print(f"\nИсходная частота из отчёта: {base_freq:.0f} MT/s")
-    print(f"Найдено таймингов: {len(timings)}\n")
+    print(f"\n{tr('base_freq_from_report', f=base_freq)}")
+    print(f"{tr('timings_found', n=len(timings))}\n")
 
     rows = convert_timings(base_freq, new_freq, timings, mode=mode)
     print_table(rows, base_freq, new_freq)
