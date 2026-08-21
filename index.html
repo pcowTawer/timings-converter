@@ -405,7 +405,6 @@ document.getElementById('btnCalc').addEventListener('click', () => {
   renderFromState();
   const count = Object.keys(timings).length;
   setStatus(`Готово. Строк: ${count}. Режим: ${mode === 'nearest' ? 'ближайшее значение' : 'безопасный'}.`);
-  setWarn(newFreq < baseFreq ? 'Целевая частота ниже исходной — тайминги в тактах увеличены, но задержки в нс могут отличаться.' : '');
 });
 
 // --- ручной старт ---
