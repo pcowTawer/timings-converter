@@ -4,7 +4,7 @@
 на другую частоту с сохранением (или увеличением) задержки в наносекундах.
 
 Использование:
-    python zentimings_convert.py
+    python timings_convert.py
 Скрипт спросит:
     1) путь к html-отчёту ZenTimings
     2) целевую частоту памяти (MT/s)
@@ -68,11 +68,21 @@ def parse_zentimings(html_path: Path):
     return base_freq, timings
 
 
-def convert_timings(base_freq: float, new_freq: float, timings: dict):
+def convert_timings(base_freq: float, new_freq: float, timings: dict, mode: str = "safe"):
     """
-    Пересчитывает тайминги в тактах на новую частоту, сохраняя
-    задержку в нс равной или больше исходной (округление вверх).
+    Пересчитывает тайминги в тактах на новую частоту.
+
+    mode="safe" (по умолчанию): округление в "безопасную" сторону.
+        Для обычных таймингов (латентность, меньше = лучше) — вверх,
+        задержка в нс не меньше исходной.
+        Для REFI (интервал обновления, больше = лучше) — вниз,
+        задержка в нс не больше исходной (безопасное направление —
+        не увеличивать интервал между обновлениями).
+    mode="nearest": просто ближайшее достижимое значение, без
+        гарантии "не хуже исходного" в любую сторону.
     """
+    import math
+
     base_clk = base_freq / 2.0  # действительная частота DRAM, МГц
     new_clk = new_freq / 2.0
 
@@ -83,10 +93,19 @@ def convert_timings(base_freq: float, new_freq: float, timings: dict):
         if cyc == 0:
             cyc_new = 0
         else:
-            import math
-            cyc_new = math.ceil(ns_old * new_clk / 1000.0)
-            if cyc_new < 1:
-                cyc_new = 1
+            exact = ns_old * new_clk / 1000.0
+            if mode == "nearest":
+                lower, upper = math.floor(exact), math.ceil(exact)
+                candidates = [c for c in (lower, upper) if c >= 1] or [1]
+                cyc_new = min(candidates, key=lambda c: abs((c / new_clk * 1000.0) - ns_old))
+            elif name == "REFI":
+                cyc_new = math.floor(exact)
+                if cyc_new < 1:
+                    cyc_new = 1
+            else:
+                cyc_new = math.ceil(exact)
+                if cyc_new < 1:
+                    cyc_new = 1
 
         ns_new = cyc_new / new_clk * 1000.0
         result.append((name, cyc, ns_old, cyc_new, ns_new))
@@ -135,11 +154,17 @@ def main():
         print("Некорректное значение частоты.")
         sys.exit(1)
 
+    mode_str = input(
+        "Режим округления — [1] безопасный, не хуже исходного (по умолчанию) "
+        "/ [2] ближайшее значение: "
+    ).strip()
+    mode = "nearest" if mode_str == "2" else "safe"
+
     base_freq, timings = parse_zentimings(html_path)
     print(f"\nИсходная частота из отчёта: {base_freq:.0f} MT/s")
     print(f"Найдено таймингов: {len(timings)}\n")
 
-    rows = convert_timings(base_freq, new_freq, timings)
+    rows = convert_timings(base_freq, new_freq, timings, mode=mode)
     print_table(rows, base_freq, new_freq)
 
     out_path = html_path.with_name(f"timings_{int(base_freq)}_to_{int(new_freq)}.csv")

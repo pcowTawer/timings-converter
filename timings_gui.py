@@ -8,8 +8,8 @@ ZenTimings Frequency Converter — небольшое GUI-приложение.
 
 Сборка в .exe (на Windows, где будет запускаться сам exe):
     pip install pyinstaller beautifulsoup4
-    pyinstaller --onefile --windowed --name ZenTimingsConverter zentimings_gui.py
-Готовый файл появится в папке dist/ZenTimingsConverter.exe
+    pyinstaller --onefile --windowed --name TimingsConverter zentimings_gui.py
+Готовый файл появится в папке dist/TimingsConverter.exe
 """
 
 import re
@@ -112,7 +112,14 @@ def parse_zentimings(html_path: Path):
     return base_freq, timings
 
 
-def convert_timings(base_freq: float, new_freq: float, timings: dict):
+def convert_timings(base_freq: float, new_freq: float, timings: dict, mode: str = "safe"):
+    """
+    mode="safe": округление в "безопасную" сторону — не хуже исходного.
+        Для обычных таймингов (латентность) — вверх (нс не меньше исходного).
+        Для REFI (больше = лучше) — вниз (нс не больше исходного), так как
+        безопасное направление для интервала обновления — не увеличивать его.
+    mode="nearest": просто ближайшее достижимое значение без гарантии "не хуже".
+    """
     base_clk = base_freq / 2.0
     new_clk = new_freq / 2.0
 
@@ -122,9 +129,22 @@ def convert_timings(base_freq: float, new_freq: float, timings: dict):
         if cyc == 0:
             cyc_new = 0
         else:
-            cyc_new = math.ceil(ns_old * new_clk / 1000.0)
-            if cyc_new < 1:
-                cyc_new = 1
+            exact = ns_old * new_clk / 1000.0
+            if mode == "nearest":
+                lower = math.floor(exact)
+                upper = math.ceil(exact)
+                candidates = [c for c in (lower, upper) if c >= 1] or [1]
+                cyc_new = min(candidates, key=lambda c: abs((c / new_clk * 1000.0) - ns_old))
+            elif name == "REFI":
+                # больше = лучше -> "не хуже" означает не увеличивать интервал -> округляем вниз
+                cyc_new = math.floor(exact)
+                if cyc_new < 1:
+                    cyc_new = 1
+            else:
+                # меньше = лучше -> "не хуже" означает не уменьшать задержку -> округляем вверх
+                cyc_new = math.ceil(exact)
+                if cyc_new < 1:
+                    cyc_new = 1
         ns_new = cyc_new / new_clk * 1000.0
         result.append((name, cyc, ns_old, cyc_new, ns_new))
     return result
@@ -133,13 +153,14 @@ def convert_timings(base_freq: float, new_freq: float, timings: dict):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("ZenTimings Frequency Converter")
+        self.title("Timings Frequency Converter")
         self.geometry("720x560")
         self.resizable(True, True)
 
         self.report_path = tk.StringVar()
         self.base_freq_var = tk.StringVar(value="")
         self.new_freq_var = tk.StringVar(value="6400")
+        self.mode_var = tk.StringVar(value="safe")
         self.rows = []
         self.timings = {}      # редактируемые исходные тайминги {name: cycles}
         self.new_timings = {}  # редактируемые новые тайминги {name: cycles}
@@ -161,9 +182,9 @@ class App(tk.Tk):
     def _build_menu(self):
         menubar = tk.Menu(self)
         file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label="Новый расчёт...", command=self.new_manual)
-        file_menu.add_command(label="Открыть отчёт ZenTimings...", command=self.browse_file)
-        file_menu.add_command(label="Импорт из CSV...", command=self.browse_csv)
+        file_menu.add_command(label="Новый (ввести вручную)...", command=self.new_manual)
+        file_menu.add_command(label="Открыть отчёт...", command=self.browse_file)
+        file_menu.add_command(label="Открыть CSV...", command=self.browse_csv)
         file_menu.add_command(label="Экспорт в CSV...", command=self.export_csv)
         file_menu.add_separator()
         file_menu.add_command(label="Выход", command=self.destroy)
@@ -174,7 +195,7 @@ class App(tk.Tk):
         top = ttk.Frame(self, padding=10)
         top.pack(fill="x")
 
-        ttk.Label(top, text="Отчёт:").grid(row=0, column=0, sticky="w")
+        ttk.Label(top, text="Отчёт ZenTimings:").grid(row=0, column=0, sticky="w")
         ttk.Entry(top, textvariable=self.report_path, width=55).grid(row=0, column=1, padx=5)
         ttk.Button(top, text="Обзор...", command=self.browse_file).grid(row=0, column=2)
 
@@ -187,7 +208,17 @@ class App(tk.Tk):
         ttk.Label(top, text="Целевая частота (MT/s):").grid(row=2, column=0, sticky="w", pady=(8, 0))
         ttk.Entry(top, textvariable=self.new_freq_var, width=15).grid(row=2, column=1, sticky="w", pady=(8, 0))
 
-        ttk.Button(top, text="Пересчитать", command=self.calculate).grid(row=3, column=1, sticky="w", pady=10)
+        ttk.Label(top, text="Режим округления:").grid(row=3, column=0, sticky="w", pady=(8, 0))
+        mode_frame = ttk.Frame(top)
+        mode_frame.grid(row=3, column=1, columnspan=2, sticky="w", pady=(8, 0))
+        ttk.Radiobutton(
+            mode_frame, text="Безопасный (не хуже исходного)", variable=self.mode_var, value="safe"
+        ).pack(side="left")
+        ttk.Radiobutton(
+            mode_frame, text="Ближайшее значение", variable=self.mode_var, value="nearest"
+        ).pack(side="left", padx=(10, 0))
+
+        ttk.Button(top, text="Пересчитать", command=self.calculate).grid(row=4, column=1, sticky="w", pady=10)
 
         columns = ("timing", "val_old", "ns_old", "val_new", "ns_new")
         self.tree = ttk.Treeview(self, columns=columns, show="headings")
@@ -296,7 +327,7 @@ class App(tk.Tk):
         self.status.config(text=f"Импортировано из CSV: {len(timings)} таймингов.")
 
     def new_manual(self):
-        """Начать с чистого листа — фиксированный список таймингов ZenTimings, значения пустые."""
+        """Начать с чистого листа — фиксированный список таймингов, значения пустые."""
         self.report_path.set("")
         self.base_freq_var.set("")
         self.timings = {}
@@ -311,7 +342,7 @@ class App(tk.Tk):
         self.tree.heading("ns_new", text="нс (новая)")
         for name in self.order:
             self.tree.insert("", "end", iid=name, values=(name, "", "", "", ""))
-        self.status.config(text="Пустая таблица со стандартными таймингами ZenTimings. Введите частоту и значения.")
+        self.status.config(text="Пустая таблица со стандартными таймингами. Введите частоту и значения.")
 
     def _get_base_freq(self):
         try:
@@ -499,7 +530,7 @@ class App(tk.Tk):
 
         self.base_freq = base_freq
         self.new_freq = new_freq
-        self.rows = convert_timings(base_freq, new_freq, active)
+        self.rows = convert_timings(base_freq, new_freq, active, mode=self.mode_var.get())
         self.new_timings = {name: cyc_new for name, _, _, cyc_new, _ in self.rows}
 
         for item in self.tree.get_children():

@@ -158,6 +158,13 @@
     <input type="number" id="baseFreq" step="1">
     <label style="min-width:auto">Целевая частота (MT/s)</label>
     <input type="number" id="newFreq" step="1" value="6400">
+  </div>
+  <div class="row">
+    <label>Режим округления</label>
+    <label style="min-width:auto"><input type="radio" name="mode" value="safe" id="modeSafe" checked> Безопасный (не хуже исходного)</label>
+    <label style="min-width:auto"><input type="radio" name="mode" value="nearest" id="modeNearest"> Ближайшее значение</label>
+  </div>
+  <div class="row">
     <button class="primary" id="btnCalc">Пересчитать</button>
     <button id="btnExport">Экспорт в CSV</button>
   </div>
@@ -361,6 +368,7 @@ document.getElementById('btnCalc').addEventListener('click', () => {
   if (!baseFreq) { alert('Укажите исходную частоту.'); return; }
   if (!newFreq) { alert('Укажите целевую частоту.'); return; }
 
+  const mode = document.getElementById('modeNearest').checked ? 'nearest' : 'safe';
   const baseClk = baseFreq / 2.0;
   const newClk = newFreq / 2.0;
   newTimings = {};
@@ -373,15 +381,30 @@ document.getElementById('btnCalc').addEventListener('click', () => {
     if (cyc === 0) {
       cycNew = 0;
     } else {
-      cycNew = Math.ceil(nsOld * newClk / 1000.0);
-      if (cycNew < 1) cycNew = 1;
+      const exact = nsOld * newClk / 1000.0;
+      if (mode === 'nearest') {
+        const lower = Math.floor(exact), upper = Math.ceil(exact);
+        const candidates = [lower, upper].filter(c => c >= 1);
+        if (candidates.length === 0) candidates.push(1);
+        cycNew = candidates.reduce((best, c) =>
+          Math.abs((c / newClk * 1000.0) - nsOld) < Math.abs((best / newClk * 1000.0) - nsOld) ? c : best
+        );
+      } else if (name === 'REFI') {
+        // REFI: больше = лучше -> "не хуже" значит не увеличивать интервал -> вниз
+        cycNew = Math.floor(exact);
+        if (cycNew < 1) cycNew = 1;
+      } else {
+        // обычные тайминги: меньше = лучше -> "не хуже" значит не уменьшать задержку -> вверх
+        cycNew = Math.ceil(exact);
+        if (cycNew < 1) cycNew = 1;
+      }
     }
     newTimings[name] = cycNew;
   }
 
   renderFromState();
   const count = Object.keys(timings).length;
-  setStatus(`Готово. Строк: ${count}.`);
+  setStatus(`Готово. Строк: ${count}. Режим: ${mode === 'nearest' ? 'ближайшее значение' : 'безопасный'}.`);
   setWarn(newFreq < baseFreq ? 'Целевая частота ниже исходной — тайминги в тактах увеличены, но задержки в нс могут отличаться.' : '');
 });
 
