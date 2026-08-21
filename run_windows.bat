@@ -17,7 +17,7 @@ echo Installing dependencies...
 "%VENV_DIR%\Scripts\python.exe" -m pip install --upgrade pip >nul
 "%VENV_DIR%\Scripts\python.exe" -m pip install beautifulsoup4
 
-echo Starting ZenTimings Converter...
-"%VENV_DIR%\Scripts\pythonw.exe" "%~dp0zentimings_gui.py"
+echo Starting Timings Converter...
+"%VENV_DIR%\Scripts\pythonw.exe" "%~dp0timings_gui.py"
 
 endlocal

@@ -10,7 +10,7 @@
 
 - Импорт таймингов и исходной частоты прямо из html-отчёта ZenTimings
   (частота определяется автоматически из строки `Frequency`).
-- Ручной ввод: пустая таблица со стандартным списком таймингов ZenTimings —
+- Ручной ввод: пустая таблица со стандартным списком таймингов —
   заполняете сами.
 - Редактирование любого значения:
   - можно вводить число тактов напрямую;
@@ -25,8 +25,8 @@
 | Файл                     | Назначение                                                       |
 | ------------------------ | ------------------------------------------------------------------ |
 | `index.html`             | Сайт для расчетов таймингов                                        |
-| `zentimings_gui.py`      | GUI-приложение                                                     |
-| `zentimings_convert.py`  | Консольная версия                                                  |
+| `timings_gui.py`      | GUI-приложение                                                     |
+| `timings_convert.py`  | Консольная версия                                                  |
 | `run_windows.bat`        | Создаёт venv и запускает GUI на Windows                            |
 | `run_linux.sh`           | Создаёт venv и запускает GUI на Linux/Mac                          |
 | `requirements.txt`       | Зависимости проекта                                                 |
@@ -60,7 +60,7 @@ python -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt
-python zentimings_gui.py
+python timings_gui.py
 ```
 
 ## Сборка .exe (Windows)
@@ -68,10 +68,10 @@ python zentimings_gui.py
 ```bash
 .venv\Scripts\activate
 pip install pyinstaller
-pyinstaller --onefile --windowed --name ZenTimingsConverter zentimings_gui.py
+pyinstaller --onefile --windowed --name TimingsConverter timings_gui.py
 ```
 
-Готовый файл появится в `dist\ZenTimingsConverter.exe` — запускается без
+Готовый файл появится в `dist\TimingsConverter.exe` — запускается без
 установленного Python.
 
 ## Использование

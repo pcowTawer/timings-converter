@@ -13,5 +13,5 @@ echo "Installing dependencies..."
 "$VENV_DIR/bin/python" -m pip install --upgrade pip >/dev/null
 "$VENV_DIR/bin/python" -m pip install beautifulsoup4
 
-echo "Starting ZenTimings Converter..."
-"$VENV_DIR/bin/python" "$DIR/zentimings_gui.py"
+echo "Starting Timings Converter..."
+"$VENV_DIR/bin/python" "$DIR/timings_gui.py"

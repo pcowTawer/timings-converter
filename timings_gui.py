@@ -195,7 +195,7 @@ class App(tk.Tk):
         top = ttk.Frame(self, padding=10)
         top.pack(fill="x")
 
-        ttk.Label(top, text="Отчёт ZenTimings:").grid(row=0, column=0, sticky="w")
+        ttk.Label(top, text="Отчёт:").grid(row=0, column=0, sticky="w")
         ttk.Entry(top, textvariable=self.report_path, width=55).grid(row=0, column=1, padx=5)
         ttk.Button(top, text="Обзор...", command=self.browse_file).grid(row=0, column=2)
 
