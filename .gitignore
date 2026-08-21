@@ -1,6 +1,3 @@
-.venv/
-build/
-dist/
+_artifacts/
 __pycache__/
-*.spec
 *.pyc
