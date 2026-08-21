@@ -90,4 +90,4 @@ _artifacts/builds/Timings.Converter.Linux
 
 ## Лицензия
 
-Свободное использование для личных целей.
+MIT license
